@@ -123,14 +123,12 @@ END
     
     FILE_TYPES.each do |type, exts|
       if ARGV.delete('--'+type.to_s)
-        exts.each do |ext|
-          opt[:includes] << ext
-        end
+        ARGV << '--type'
+        ARGV << type.to_s
       end
       if ARGV.delete('--no'+type.to_s)
-        exts.each do |ext|
-          opt[:excludes] << ext
-        end
+        ARGV << '--type'
+        ARGV << 'no'+type.to_s
       end
     end
     
