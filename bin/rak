@@ -161,6 +161,7 @@ END
                             [ '--nocolor', GetoptLong::NO_ARGUMENT ],
                             [ '-a', '--all', GetoptLong::NO_ARGUMENT ],
                             [ '--type', GetoptLong::REQUIRED_ARGUMENT ],
+                            [ '--type-add', GetoptLong::REQUIRED_ARGUMENT ],
                             [ '--sort-files', GetoptLong::NO_ARGUMENT ],
                             [ '--follow', GetoptLong::NO_ARGUMENT ],
                             [ '--nofollow', GetoptLong::NO_ARGUMENT ],
@@ -311,6 +312,11 @@ END
           exts.each do |ext|
             arr << ext
           end
+        when '--type-add'
+            type, exts = arg.split('=')
+            exts.split(',').each do |ext|
+              FILE_TYPES[type.intern] << ext
+            end
         when '--sort-files'
           opt[:sort_files] = true
         when '--follow'
