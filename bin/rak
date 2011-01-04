@@ -160,6 +160,7 @@ END
                             [ '-a', '--all', GetoptLong::NO_ARGUMENT ],
                             [ '--type', GetoptLong::REQUIRED_ARGUMENT ],
                             [ '--type-add', GetoptLong::REQUIRED_ARGUMENT ],
+                            [ '--type-set', GetoptLong::REQUIRED_ARGUMENT ],
                             [ '--sort-files', GetoptLong::NO_ARGUMENT ],
                             [ '--follow', GetoptLong::NO_ARGUMENT ],
                             [ '--nofollow', GetoptLong::NO_ARGUMENT ],
@@ -315,6 +316,9 @@ END
             exts.split(',').each do |ext|
               FILE_TYPES[type.intern] << ext
             end
+        when '--type-set'
+            type, exts = arg.split('=')
+            FILE_TYPES[type.intern] = exts.split(',')
         when '--sort-files'
           opt[:sort_files] = true
         when '--follow'
