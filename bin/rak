@@ -13,6 +13,45 @@ end
 
 require 'getoptlong'
 
+#
+# Hack to allow us to parse options that were created at runtime 
+# (e.g.: --foo in --type-set foo=.foo1,.foo2 --foo)
+#
+class RelaxedGetoptLong < GetoptLong
+  def set_error(type, message)
+    if type == InvalidOption and @unknown_option_block
+      if message =~ /unrecognized option `(.*)'/
+        # Pull the option out of the error message from GetoptLong#get with a
+        # regular expression. Yuck!
+        option = $1
+
+        if option
+          # Call block that caller supplied with "unknown_option" method.
+          block_return_value = @unknown_option_block.call option
+
+          # If the block does "next true" then we assume the block handled
+          # the situation and we don't need to do anything else.
+          # Otherwise, we fall through and call "super" to get the default
+          # behavior of printing an error and raising an exception
+          if block_return_value == true
+              return block_return_value
+          end
+        end
+      end
+    end
+
+    super
+  end
+
+  #
+  # Call this method to supply a block that will get called when an
+  # unrecognized option is seen.
+  #
+  def unknown_option(&block)
+      @unknown_option_block = block
+  end
+end
+    
 begin
   require 'oniguruma'
   require 'inline'
@@ -121,20 +160,7 @@ END
     opt[:includes] = []
     opt[:excludes] = []
     
-    FILE_TYPES.each do |type, exts|
-      if ARGV.delete('--'+type.to_s)
-        exts.each do |ext|
-          opt[:includes] << ext
-        end
-      end
-      if ARGV.delete('--no'+type.to_s)
-        exts.each do |ext|
-          opt[:excludes] << ext
-        end
-      end
-    end
-    
-      opts = GetoptLong.new(
+    opts = RelaxedGetoptLong.new(
                             [ '--help', GetoptLong::OPTIONAL_ARGUMENT ],
                             [ '--max-count', '-m', GetoptLong::REQUIRED_ARGUMENT ],
                             [ '--files', '-f', GetoptLong::NO_ARGUMENT ],
@@ -161,6 +187,8 @@ END
                             [ '--nocolor', GetoptLong::NO_ARGUMENT ],
                             [ '-a', '--all', GetoptLong::NO_ARGUMENT ],
                             [ '--type', GetoptLong::REQUIRED_ARGUMENT ],
+                            [ '--type-add', GetoptLong::REQUIRED_ARGUMENT ],
+                            [ '--type-set', GetoptLong::REQUIRED_ARGUMENT ],
                             [ '--sort-files', GetoptLong::NO_ARGUMENT ],
                             [ '--follow', GetoptLong::NO_ARGUMENT ],
                             [ '--nofollow', GetoptLong::NO_ARGUMENT ],
@@ -174,6 +202,27 @@ END
                             [ '-e', '--line-end', GetoptLong::NO_ARGUMENT ],
                             [ '--eval', GetoptLong::REQUIRED_ARGUMENT ]
                             )
+    opts.unknown_option do |option|
+      option_without_dashes = option[2..-1]
+
+      if option_without_dashes[0..1] == 'no'
+          arr = opt[:excludes]
+          option_without_dashes = option_without_dashes[2..-1]
+      else
+          arr = opt[:includes]
+      end
+
+      if FILE_TYPES[option_without_dashes.intern]
+        exts = FILE_TYPES[option_without_dashes.intern]
+        if exts
+          exts.each do |ext|
+            arr << ext
+          end
+
+          next true
+        end
+      end
+    end
 
     opt[:max_count] = nil
     opt[:only_print_filelist] = false
@@ -311,6 +360,14 @@ END
           exts.each do |ext|
             arr << ext
           end
+        when '--type-add'
+            type, exts = arg.split('=')
+            exts.split(',').each do |ext|
+              FILE_TYPES[type.intern] << ext
+            end
+        when '--type-set'
+            type, exts = arg.split('=')
+            FILE_TYPES[type.intern] = exts.split(',')
         when '--sort-files'
           opt[:sort_files] = true
         when '--follow'
